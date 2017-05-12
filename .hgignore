@@ -1,0 +1,12 @@
+syntax: regexp
+^.vs/
+^packages/
+^TestResults/
+syntax: glob
+*.suo
+*.user
+*/_ReSharper.*
+bin/Debug
+bin/Release
+obj/Debug
+obj/Release
