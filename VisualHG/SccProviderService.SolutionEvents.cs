@@ -1,14 +1,9 @@
-﻿using System;
+﻿using System.Diagnostics;
 using System.IO;
-using System.Diagnostics;
-using System.Collections;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.InteropServices;
-using Microsoft.VisualStudio.OLE.Interop;
-using Microsoft.VisualStudio.Shell.Interop;
+using HGLib;
 using Microsoft.VisualStudio;
-using System.Windows.Forms;
+using Microsoft.VisualStudio.Shell.Interop;
 
 namespace VisualHG
 {
@@ -17,120 +12,126 @@ namespace VisualHG
         //--------------------------------------------------------------------------------
         // IVsSolutionEvents and IVsSolutionEvents2 specific functions
         //--------------------------------------------------------------------------------
+
         #region IVsSolutionEvents interface functions
 
-        public int OnAfterOpenSolution([InAttribute] Object pUnkReserved, [InAttribute] int fNewSolution)
+        public int OnAfterOpenSolution([In] object pUnkReserved, [In] int fNewSolution)
         {
             Trace.WriteLine("OnAfterOpenSolution");
 
             // Make VisualHG the active SCC controler on Mercurial solution types
-            if (!Active && Configuration.Global._autoActivatePlugin)
+            if (!Active && Configuration.Global.AutoActivatePlugin)
             {
-                string root = this._sccProvider.GetRootDirectory();
+                var root = _sccProvider.GetRootDirectory();
                 if (root.Length > 0)
                 {
-                    IVsRegisterScciProvider rscp = (IVsRegisterScciProvider)this._sccProvider.GetService(typeof(IVsRegisterScciProvider));
-                    rscp.RegisterSourceControlProvider(GuidList.guidSccProvider);
+                    var rscp = (IVsRegisterScciProvider) _sccProvider.GetService(typeof(IVsRegisterScciProvider));
+                    rscp.RegisterSourceControlProvider(GuidList.GuidSccProvider);
                 }
             }
             return VSConstants.S_OK;
         }
 
-        public int OnAfterCloseSolution([InAttribute] Object pUnkReserved)
+        public int OnAfterCloseSolution([In] object pUnkReserved)
         {
             Trace.WriteLine("OnAfterCloseSolution");
 
-            _sccStatusTracker.ClearStatusCache();
-            _sccProvider._LastSeenProjectDir = string.Empty;
+            StatusTracker.ClearStatusCache();
+            _sccProvider.LastSeenProjectDir = string.Empty;
             // update pending tool window
             UpdatePendingWindowState();
 
             return VSConstants.S_OK;
         }
 
-        public int OnAfterLoadProject([InAttribute] IVsHierarchy pStubHierarchy, [InAttribute] IVsHierarchy pRealHierarchy)
+        public int OnAfterLoadProject([In] IVsHierarchy pStubHierarchy, [In] IVsHierarchy pRealHierarchy)
         {
             Trace.WriteLine("OnAfterLoadProject");
 
-            _sccProvider._LastSeenProjectDir = SccProjectData.ProjectDirectory(pRealHierarchy);
-            _sccStatusTracker.UpdateProject(pRealHierarchy as IVsSccProject2);
+            _sccProvider.LastSeenProjectDir = SccProjectData.ProjectDirectory(pRealHierarchy);
+            // ReSharper disable once SuspiciousTypeConversion.Global
+            StatusTracker.UpdateProject(pRealHierarchy as IVsSccProject2);
             return VSConstants.S_OK;
         }
 
-        public int OnAfterOpenProject([InAttribute] IVsHierarchy pHierarchy, [InAttribute] int fAdded)
+        public int OnAfterOpenProject([In] IVsHierarchy pHierarchy, [In] int fAdded)
         {
             Trace.WriteLine("OnAfterOpenProject");
 
             //if (fAdded == 1)
             {
-                IVsSccProject2 project = pHierarchy as IVsSccProject2;
-                
-                IList<string> fileList = SccProvider.GetProjectFiles(project);
-                _sccStatusTracker.AddFileToProjectCache(fileList, project);
+                // ReSharper disable once SuspiciousTypeConversion.Global
+                var project = pHierarchy as IVsSccProject2;
+
+                var fileList = SccProvider.GetProjectFiles(project);
+                StatusTracker.AddFileToProjectCache(fileList, project);
 
                 if (fileList.Count > 0)
                 {
-                    string[] files = new string[fileList.Count];
+                    var files = new string[fileList.Count];
                     fileList.CopyTo(files, 0);
                     // add only files wich are not ignored
-                    if (Configuration.Global._autoAddFiles)
-                        _sccStatusTracker.AddWorkItem(new HGLib.TrackFilesAddedNotIgnored(files));
+                    if (Configuration.Global.AutoAddFiles)
+                        StatusTracker.AddWorkItem(new TrackFilesAddedNotIgnored(files));
                     else
-                        _sccStatusTracker.AddWorkItem(new HGLib.UpdateFileStatusCommand(files));
+                        StatusTracker.AddWorkItem(new UpdateFileStatusCommand(files));
                 }
             }
 
-            _sccProvider._LastSeenProjectDir = SccProjectData.ProjectDirectory(pHierarchy);
-            _sccStatusTracker.UpdateProject(pHierarchy as IVsSccProject2);
+            _sccProvider.LastSeenProjectDir = SccProjectData.ProjectDirectory(pHierarchy);
+            // ReSharper disable once SuspiciousTypeConversion.Global
+            StatusTracker.UpdateProject(pHierarchy as IVsSccProject2);
             return VSConstants.S_OK;
         }
 
-        public int OnBeforeCloseProject([InAttribute] IVsHierarchy pHierarchy, [InAttribute] int fRemoved)
+        public int OnBeforeCloseProject([In] IVsHierarchy pHierarchy, [In] int fRemoved)
         {
-            if (_sccStatusTracker.FileProjectMapCacheCount() > 0)
-            { 
-                IVsSccProject2 project = pHierarchy as IVsSccProject2;
-                IList<string> fileList = SccProvider.GetProjectFiles(project);
-                _sccStatusTracker.RemoveFileFromProjectCache(fileList);
-            }
-                        
-            return VSConstants.S_OK;
-        }
-
-        public int OnBeforeCloseSolution([InAttribute] Object pUnkReserved)
-        {
-            _sccStatusTracker.ClearFileToProjectCache(); 
-            return VSConstants.S_OK;
-        }
-
-        public int OnBeforeUnloadProject([InAttribute] IVsHierarchy pRealHierarchy, [InAttribute] IVsHierarchy pStubHierarchy)
-        {
-            if (_sccStatusTracker.FileProjectMapCacheCount() > 0)
+            if (StatusTracker.FileProjectMapCacheCount() > 0)
             {
-                IVsSccProject2 project = pRealHierarchy as IVsSccProject2;
-                IList<string> fileList = SccProvider.GetProjectFiles(project);
-                _sccStatusTracker.RemoveFileFromProjectCache(fileList);
+                // ReSharper disable once SuspiciousTypeConversion.Global
+                var project = pHierarchy as IVsSccProject2;
+                var fileList = SccProvider.GetProjectFiles(project);
+                StatusTracker.RemoveFileFromProjectCache(fileList);
             }
 
             return VSConstants.S_OK;
         }
 
-        public int OnQueryCloseProject([InAttribute] IVsHierarchy pHierarchy, [InAttribute] int fRemoving, [InAttribute] ref int pfCancel)
+        public int OnBeforeCloseSolution([In] object pUnkReserved)
+        {
+            StatusTracker.ClearFileToProjectCache();
+            return VSConstants.S_OK;
+        }
+
+        public int OnBeforeUnloadProject([In] IVsHierarchy pRealHierarchy, [In] IVsHierarchy pStubHierarchy)
+        {
+            if (StatusTracker.FileProjectMapCacheCount() > 0)
+            {
+                // ReSharper disable once SuspiciousTypeConversion.Global
+                var project = pRealHierarchy as IVsSccProject2;
+                var fileList = SccProvider.GetProjectFiles(project);
+                StatusTracker.RemoveFileFromProjectCache(fileList);
+            }
+
+            return VSConstants.S_OK;
+        }
+
+        public int OnQueryCloseProject([In] IVsHierarchy pHierarchy, [In] int fRemoving, [In] ref int pfCancel)
         {
             return VSConstants.S_OK;
         }
 
-        public int OnQueryCloseSolution([InAttribute] Object pUnkReserved, [InAttribute] ref int pfCancel)
+        public int OnQueryCloseSolution([In] object pUnkReserved, [In] ref int pfCancel)
         {
             return VSConstants.S_OK;
         }
 
-        public int OnQueryUnloadProject([InAttribute] IVsHierarchy pRealHierarchy, [InAttribute] ref int pfCancel)
+        public int OnQueryUnloadProject([In] IVsHierarchy pRealHierarchy, [In] ref int pfCancel)
         {
             return VSConstants.S_OK;
         }
 
-        public int OnAfterMergeSolution([InAttribute] Object pUnkReserved)
+        public int OnAfterMergeSolution([In] object pUnkReserved)
         {
             return VSConstants.S_OK;
         }
@@ -141,118 +142,134 @@ namespace VisualHG
         //--------------------------------------------------------------------------------
         // IVsTrackProjectDocumentsEvents2 specific functions
         //--------------------------------------------------------------------------------
+
         #region IVsTrackProjectDocumentsEvents2 interface funcions
 
-        public int OnQueryAddFiles([InAttribute] IVsProject pProject, [InAttribute] int cFiles, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSQUERYADDFILEFLAGS[] rgFlags, [OutAttribute] VSQUERYADDFILERESULTS[] pSummaryResult, [OutAttribute] VSQUERYADDFILERESULTS[] rgResults)
+        public int OnQueryAddFiles([In] IVsProject pProject, [In] int cFiles, [In] string[] rgpszMkDocuments,
+            [In] VSQUERYADDFILEFLAGS[] rgFlags, [Out] VSQUERYADDFILERESULTS[] pSummaryResult,
+            [Out] VSQUERYADDFILERESULTS[] rgResults)
         {
-            _sccStatusTracker.EnableDirectoryWatching(false);
+            StatusTracker.EnableDirectoryWatching(false);
             return VSConstants.S_OK;
         }
 
         /// <summary>
-        /// Implement this function to update the project scc glyphs when the items are added to the project.
-        /// If a project doesn't call GetSccGlyphs as they should do (as solution folder do), this will update correctly the glyphs when the project is controled
+        ///     Implement this function to update the project scc glyphs when the items are added to the project.
+        ///     If a project doesn't call GetSccGlyphs as they should do (as solution folder do), this will update correctly the
+        ///     glyphs when the project is controled
         /// </summary>
-        public int OnAfterAddFilesEx([InAttribute] int cProjects, [InAttribute] int cFiles, [InAttribute] IVsProject[] rgpProjects, [InAttribute] int[] rgFirstIndices, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSADDFILEFLAGS[] rgFlags)
+        public int OnAfterAddFilesEx([In] int cProjects, [In] int cFiles, [In] IVsProject[] rgpProjects,
+            [In] int[] rgFirstIndices, [In] string[] rgpszMkDocuments, [In] VSADDFILEFLAGS[] rgFlags)
         {
-            _sccStatusTracker.EnableDirectoryWatching(true);
+            StatusTracker.EnableDirectoryWatching(true);
 
-            HGLib.HGFileStatusInfo info;
-            _sccStatusTracker.GetFileStatusInfo(rgpszMkDocuments[0], out info);
-            if (info == null || info.status == HGLib.HGFileStatus.scsRemoved ||    // undelete file
-                                info.status == HGLib.HGFileStatus.scsUncontrolled) // do not add files twice
-            {
-                // add only files wich are not ignored
-                if (Configuration.Global._autoAddFiles)
-                    _sccStatusTracker.AddWorkItem(new HGLib.TrackFilesAddedNotIgnored(rgpszMkDocuments));
-            }
+            HGFileStatusInfo info;
+            StatusTracker.GetFileStatusInfo(rgpszMkDocuments[0], out info);
+            if (info == null || info.status == HGFileStatus.scsRemoved || // undelete file
+                info.status == HGFileStatus.scsUncontrolled) // do not add files twice
+                if (Configuration.Global.AutoAddFiles)
+                    StatusTracker.AddWorkItem(new TrackFilesAddedNotIgnored(rgpszMkDocuments));
             return VSConstants.S_OK;
         }
 
-        public int OnQueryAddDirectories([InAttribute] IVsProject pProject, [InAttribute] int cDirectories, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSQUERYADDDIRECTORYFLAGS[] rgFlags, [OutAttribute] VSQUERYADDDIRECTORYRESULTS[] pSummaryResult, [OutAttribute] VSQUERYADDDIRECTORYRESULTS[] rgResults)
+        public int OnQueryAddDirectories([In] IVsProject pProject, [In] int cDirectories,
+            [In] string[] rgpszMkDocuments, [In] VSQUERYADDDIRECTORYFLAGS[] rgFlags,
+            [Out] VSQUERYADDDIRECTORYRESULTS[] pSummaryResult, [Out] VSQUERYADDDIRECTORYRESULTS[] rgResults)
         {
             Trace.WriteLine("OnQueryAddDirectories");
-            for (int iDirectory = 0; iDirectory < cDirectories; ++iDirectory)
-            {
-                Trace.WriteLine("    dir: " + rgpszMkDocuments[iDirectory] + ", flag: " + rgFlags[iDirectory].ToString());
-            }
+            for (var iDirectory = 0; iDirectory < cDirectories; ++iDirectory)
+                Trace.WriteLine("    dir: " + rgpszMkDocuments[iDirectory] + ", flag: " + rgFlags[iDirectory]);
 
             return VSConstants.S_OK;
         }
 
-        public int OnAfterAddDirectoriesEx([InAttribute] int cProjects, [InAttribute] int cDirectories, [InAttribute] IVsProject[] rgpProjects, [InAttribute] int[] rgFirstIndices, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSADDDIRECTORYFLAGS[] rgFlags)
+        public int OnAfterAddDirectoriesEx([In] int cProjects, [In] int cDirectories, [In] IVsProject[] rgpProjects,
+            [In] int[] rgFirstIndices, [In] string[] rgpszMkDocuments, [In] VSADDDIRECTORYFLAGS[] rgFlags)
         {
             Trace.WriteLine("OnAfterAddDirectoriesEx");
-            for (int iDirectory = 0; iDirectory < cDirectories; ++iDirectory)
-            {
-                Trace.WriteLine("    dir: " + rgpszMkDocuments[iDirectory] + ", flag: " + rgFlags[iDirectory].ToString());
-            }
+            for (var iDirectory = 0; iDirectory < cDirectories; ++iDirectory)
+                Trace.WriteLine("    dir: " + rgpszMkDocuments[iDirectory] + ", flag: " + rgFlags[iDirectory]);
 
             return VSConstants.S_OK;
         }
 
         /// <summary>
-        /// Implement OnQueryRemoveFilesevent to warn the user when he's deleting controlled files.
-        /// The user gets the chance to cancel the file removal.
+        ///     Implement OnQueryRemoveFilesevent to warn the user when he's deleting controlled files.
+        ///     The user gets the chance to cancel the file removal.
         /// </summary>
-        public int OnQueryRemoveFiles([InAttribute] IVsProject pProject, [InAttribute] int cFiles, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSQUERYREMOVEFILEFLAGS[] rgFlags, [OutAttribute] VSQUERYREMOVEFILERESULTS[] pSummaryResult, [OutAttribute] VSQUERYREMOVEFILERESULTS[] rgResults)
+        public int OnQueryRemoveFiles([In] IVsProject pProject, [In] int cFiles, [In] string[] rgpszMkDocuments,
+            [In] VSQUERYREMOVEFILEFLAGS[] rgFlags, [Out] VSQUERYREMOVEFILERESULTS[] pSummaryResult,
+            [Out] VSQUERYREMOVEFILERESULTS[] rgResults)
         {
-            _sccStatusTracker.EnableDirectoryWatching(false);
+            StatusTracker.EnableDirectoryWatching(false);
             return VSConstants.S_OK;
         }
 
-        public int OnAfterRemoveFiles([InAttribute] int cProjects, [InAttribute] int cFiles, [InAttribute] IVsProject[] rgpProjects, [InAttribute] int[] rgFirstIndices, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSREMOVEFILEFLAGS[] rgFlags)
+        public int OnAfterRemoveFiles([In] int cProjects, [In] int cFiles, [In] IVsProject[] rgpProjects,
+            [In] int[] rgFirstIndices, [In] string[] rgpszMkDocuments, [In] VSREMOVEFILEFLAGS[] rgFlags)
         {
-            _sccStatusTracker.EnableDirectoryWatching(true);
+            StatusTracker.EnableDirectoryWatching(true);
 
             if (rgpProjects == null || rgpszMkDocuments == null)
                 return VSConstants.E_POINTER;
 
             if (!File.Exists(rgpszMkDocuments[0])) // EnterFileRemoved only if the file was actually removed
-                _sccStatusTracker.AddWorkItem(new HGLib.TrackFileRemoved(rgpszMkDocuments));
+                StatusTracker.AddWorkItem(new TrackFileRemoved(rgpszMkDocuments));
 
             return VSConstants.S_OK;
         }
 
-        public int OnQueryRemoveDirectories([InAttribute] IVsProject pProject, [InAttribute] int cDirectories, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSQUERYREMOVEDIRECTORYFLAGS[] rgFlags, [OutAttribute] VSQUERYREMOVEDIRECTORYRESULTS[] pSummaryResult, [OutAttribute] VSQUERYREMOVEDIRECTORYRESULTS[] rgResults)
+        public int OnQueryRemoveDirectories([In] IVsProject pProject, [In] int cDirectories,
+            [In] string[] rgpszMkDocuments, [In] VSQUERYREMOVEDIRECTORYFLAGS[] rgFlags,
+            [Out] VSQUERYREMOVEDIRECTORYRESULTS[] pSummaryResult, [Out] VSQUERYREMOVEDIRECTORYRESULTS[] rgResults)
         {
             return VSConstants.S_OK;
         }
 
-        public int OnAfterRemoveDirectories([InAttribute] int cProjects, [InAttribute] int cDirectories, [InAttribute] IVsProject[] rgpProjects, [InAttribute] int[] rgFirstIndices, [InAttribute] string[] rgpszMkDocuments, [InAttribute] VSREMOVEDIRECTORYFLAGS[] rgFlags)
+        public int OnAfterRemoveDirectories([In] int cProjects, [In] int cDirectories, [In] IVsProject[] rgpProjects,
+            [In] int[] rgFirstIndices, [In] string[] rgpszMkDocuments, [In] VSREMOVEDIRECTORYFLAGS[] rgFlags)
         {
             //StoreSolution();
             return VSConstants.S_OK;
         }
 
-        public int OnQueryRenameFiles([InAttribute] IVsProject pProject, [InAttribute] int cFiles, [InAttribute] string[] rgszMkOldNames, [InAttribute] string[] rgszMkNewNames, [InAttribute] VSQUERYRENAMEFILEFLAGS[] rgFlags, [OutAttribute] VSQUERYRENAMEFILERESULTS[] pSummaryResult, [OutAttribute] VSQUERYRENAMEFILERESULTS[] rgResults)
+        public int OnQueryRenameFiles([In] IVsProject pProject, [In] int cFiles, [In] string[] rgszMkOldNames,
+            [In] string[] rgszMkNewNames, [In] VSQUERYRENAMEFILEFLAGS[] rgFlags,
+            [Out] VSQUERYRENAMEFILERESULTS[] pSummaryResult, [Out] VSQUERYRENAMEFILERESULTS[] rgResults)
         {
-            _sccStatusTracker.EnableDirectoryWatching(false);
+            StatusTracker.EnableDirectoryWatching(false);
             return VSConstants.S_OK;
         }
 
         /// <summary>
-        /// Implement OnAfterRenameFiles event to rename a file in the source control store when it gets renamed in the project
-        /// Also, rename the store if the project itself is renamed
+        ///     Implement OnAfterRenameFiles event to rename a file in the source control store when it gets renamed in the project
+        ///     Also, rename the store if the project itself is renamed
         /// </summary>
-        public int OnAfterRenameFiles([InAttribute] int cProjects, [InAttribute] int cFiles, [InAttribute] IVsProject[] rgpProjects, [InAttribute] int[] rgFirstIndices, [InAttribute] string[] rgszMkOldNames, [InAttribute] string[] rgszMkNewNames, [InAttribute] VSRENAMEFILEFLAGS[] rgFlags)
+        public int OnAfterRenameFiles([In] int cProjects, [In] int cFiles, [In] IVsProject[] rgpProjects,
+            [In] int[] rgFirstIndices, [In] string[] rgszMkOldNames, [In] string[] rgszMkNewNames,
+            [In] VSRENAMEFILEFLAGS[] rgFlags)
         {
-            _sccStatusTracker.EnableDirectoryWatching(true);
-            _sccStatusTracker.AddWorkItem(new HGLib.TrackFilesRenamed(rgszMkOldNames, rgszMkNewNames));
+            StatusTracker.EnableDirectoryWatching(true);
+            StatusTracker.AddWorkItem(new TrackFilesRenamed(rgszMkOldNames, rgszMkNewNames));
             return VSConstants.S_OK;
         }
 
-        public int OnQueryRenameDirectories([InAttribute] IVsProject pProject, [InAttribute] int cDirs, [InAttribute] string[] rgszMkOldNames, [InAttribute] string[] rgszMkNewNames, [InAttribute] VSQUERYRENAMEDIRECTORYFLAGS[] rgFlags, [OutAttribute] VSQUERYRENAMEDIRECTORYRESULTS[] pSummaryResult, [OutAttribute] VSQUERYRENAMEDIRECTORYRESULTS[] rgResults)
+        public int OnQueryRenameDirectories([In] IVsProject pProject, [In] int cDirs, [In] string[] rgszMkOldNames,
+            [In] string[] rgszMkNewNames, [In] VSQUERYRENAMEDIRECTORYFLAGS[] rgFlags,
+            [Out] VSQUERYRENAMEDIRECTORYRESULTS[] pSummaryResult, [Out] VSQUERYRENAMEDIRECTORYRESULTS[] rgResults)
         {
             return VSConstants.E_NOTIMPL;
         }
 
-        public int OnAfterRenameDirectories([InAttribute] int cProjects, [InAttribute] int cDirs, [InAttribute] IVsProject[] rgpProjects, [InAttribute] int[] rgFirstIndices, [InAttribute] string[] rgszMkOldNames, [InAttribute] string[] rgszMkNewNames, [InAttribute] VSRENAMEDIRECTORYFLAGS[] rgFlags)
+        public int OnAfterRenameDirectories([In] int cProjects, [In] int cDirs, [In] IVsProject[] rgpProjects,
+            [In] int[] rgFirstIndices, [In] string[] rgszMkOldNames, [In] string[] rgszMkNewNames,
+            [In] VSRENAMEDIRECTORYFLAGS[] rgFlags)
         {
             return VSConstants.E_NOTIMPL;
         }
 
-        public int OnAfterSccStatusChanged([InAttribute] int cProjects, [InAttribute] int cFiles, [InAttribute] IVsProject[] rgpProjects, [InAttribute] int[] rgFirstIndices, [InAttribute] string[] rgpszMkDocuments, [InAttribute] uint[] rgdwSccStatus)
+        public int OnAfterSccStatusChanged([In] int cProjects, [In] int cFiles, [In] IVsProject[] rgpProjects,
+            [In] int[] rgFirstIndices, [In] string[] rgpszMkDocuments, [In] uint[] rgdwSccStatus)
         {
             return VSConstants.E_NOTIMPL;
         }

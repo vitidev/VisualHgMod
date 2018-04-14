@@ -1,36 +1,36 @@
 ﻿using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Text;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio;
 using System.Diagnostics;
-
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Shell.Interop;
 
 namespace VisualHG
 {
     /// <summary>
-    /// Enum of project types with workarounds
+    ///     Enum of project types with workarounds
     /// </summary>
-    enum SccProjectType
+    internal enum SccProjectType
     {
         Normal,
         SolutionFolder,
-        WebSite,
+        WebSite
     }
 
     [DebuggerDisplay("Project={ProjectName}, ProjectType={_projectType}")]
-    class SccProjectData
+    internal class SccProjectData
     {
-        string _projectName;
-        string _projectDirectory;
+        private string _projectName;
+        private string _projectDirectory;
 
-        readonly IVsSccProject2 _sccProject;
-        readonly IVsHierarchy   _hierarchy;
-        readonly IVsProject     _vsProject;
-        readonly SccProjectType _projectType;
+        private readonly IVsSccProject2 _sccProject;
+        private readonly IVsHierarchy _hierarchy;
+        private readonly IVsProject _vsProject;
+
+        private readonly SccProjectType _projectType;
         //readonly SccProvider    _context;
 
+        [SuppressMessage("ReSharper", "SuspiciousTypeConversion.Global")]
         public SccProjectData(IVsSccProject2 project)
         {
             /*if (context == null)
@@ -42,56 +42,51 @@ namespace VisualHG
             */
             // Project references to speed up marshalling
             _sccProject = project;
-            _hierarchy = (IVsHierarchy)project; // A project must be a hierarchy in VS
-            _vsProject = (IVsProject)project; // A project must be a VS project
+            _hierarchy = (IVsHierarchy) project; // A project must be a hierarchy in VS
+            _vsProject = (IVsProject) project; // A project must be a VS project
 
             _projectType = GetProjectType(project);
 
-            _projectName = ProjectName((IVsHierarchy)project);
-            _projectDirectory = ProjectDirectory((IVsHierarchy)project); ;
+            _projectName = ProjectName((IVsHierarchy) project);
+            _projectDirectory = ProjectDirectory((IVsHierarchy) project);
+            ;
         }
 
-        public bool IsSolutionFolder
-        {
-            get { return _projectType == SccProjectType.SolutionFolder; }
-        }
+        public bool IsSolutionFolder => _projectType == SccProjectType.SolutionFolder;
 
-        public bool IsWebSite
-        {
-            get { return _projectType == SccProjectType.WebSite; }
-        }
+        public bool IsWebSite => _projectType == SccProjectType.WebSite;
 
-        static public string ProjectName(IVsHierarchy hierarchy)
+        public static string ProjectName(IVsHierarchy hierarchy)
         {
-            string projectName = "";
+            var projectName = "";
             if (hierarchy != null)
             {
                 object name;
 
-                if (ErrorHandler.Succeeded(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_Name, out name)))
-                {
+                if (ErrorHandler.Succeeded(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT,
+                    (int) __VSHPROPID.VSHPROPID_Name, out name)))
                     projectName = name as string;
-                }
             }
 
             return projectName;
         }
 
         /// <summary>
-        /// Gets the project directory.
+        ///     Gets the project directory.
         /// </summary>
         /// <value>The project directory or null if the project does not have one</value>
-        static public string ProjectDirectory(IVsHierarchy hierarchy)
+        public static string ProjectDirectory(IVsHierarchy hierarchy)
         {
-            string projectDirectory = "";
+            var projectDirectory = "";
             if (hierarchy != null)
             {
                 projectDirectory = "";
                 object name;
 
-                if (ErrorHandler.Succeeded(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_ProjectDir, out name)))
+                if (ErrorHandler.Succeeded(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT,
+                    (int) __VSHPROPID.VSHPROPID_ProjectDir, out name)))
                 {
-                    string dir = name as string;
+                    var dir = name as string;
 
                     if (dir != null)
                         dir = GetNormalizedFullPath(dir);
@@ -103,62 +98,64 @@ namespace VisualHG
         }
 
         /// <summary>
-        /// Checks whether the specified project is a solution folder
+        ///     Checks whether the specified project is a solution folder
         /// </summary>
-        private static readonly Guid _solutionFolderProjectId = new Guid("2150e333-8fdc-42a3-9474-1a3956d46de8");
-        private static readonly Guid _websiteProjectId = new Guid("e24c65dc-7377-472b-9aba-bc803b73c61a");
-        static SccProjectType GetProjectType(IVsSccProject2 project)
+        private static readonly Guid SolutionFolderProjectId = new Guid("2150e333-8fdc-42a3-9474-1a3956d46de8");
+
+        private static readonly Guid WebsiteProjectId = new Guid("e24c65dc-7377-472b-9aba-bc803b73c61a");
+
+        private static SccProjectType GetProjectType(IVsSccProject2 project)
         {
-            IPersistFileFormat pFileFormat = project as IPersistFileFormat;
+            // ReSharper disable once SuspiciousTypeConversion.Global
+            var pFileFormat = project as IPersistFileFormat;
             if (pFileFormat != null)
             {
-                Guid guidClassID;
-                if (VSConstants.S_OK != pFileFormat.GetClassID(out guidClassID))
+                Guid guidClassId;
+                if (VSConstants.S_OK != pFileFormat.GetClassID(out guidClassId))
                     return SccProjectType.Normal;
 
-                if (guidClassID == _solutionFolderProjectId)
+                if (guidClassId == SolutionFolderProjectId)
                     return SccProjectType.SolutionFolder;
-                else if (guidClassID == _websiteProjectId)
+                if (guidClassId == WebsiteProjectId)
                     return SccProjectType.WebSite;
             }
 
             return SccProjectType.Normal;
         }
 
-        static String GetNormalizedFullPath(String path)
+        private static string GetNormalizedFullPath(string path)
         {
-	        if (String.IsNullOrEmpty(path))
-		        throw new ArgumentNullException("path");
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentNullException(nameof(path));
 
-	        path = Path.GetFullPath(path);
+            path = Path.GetFullPath(path);
 
-	        if(path.Length >= 2 && path[1] == ':')
-	        {
-		        char c = path[0];
+            if (path.Length >= 2 && path[1] == ':')
+            {
+                var c = path[0];
 
-                if ((c >= 'a') && (c <= 'z'))
-                {
+                if (c >= 'a' && c <= 'z')
                     path = c.ToString().ToUpperInvariant() + path.Substring(1);
-                }
 
-		        String r = path.TrimEnd('\\');
+                var r = path.TrimEnd('\\');
 
-		        if(r.Length > 3)
-			        return r;
-		        else
-			        return path.Substring(0, 3);
-	        }
-	        else if(path.StartsWith("\\\\", StringComparison.OrdinalIgnoreCase))
-	        {
-		        String root = Path.GetPathRoot(path).ToLowerInvariant();
-        	
-		        if(!path.StartsWith(root, StringComparison.Ordinal))
-			        path = root + path.Substring(root.Length).TrimEnd('\\');
-	        }
-	        else
-		        path = path.TrimEnd('\\');
+                if (r.Length > 3)
+                    return r;
+                return path.Substring(0, 3);
+            }
+            if (path.StartsWith("\\\\", StringComparison.OrdinalIgnoreCase))
+            {
+                var root = Path.GetPathRoot(path).ToLowerInvariant();
 
-	        return path;
+                if (!path.StartsWith(root, StringComparison.Ordinal))
+                    path = root + path.Substring(root.Length).TrimEnd('\\');
+            }
+            else
+            {
+                path = path.TrimEnd('\\');
+            }
+
+            return path;
         }
     }
 }

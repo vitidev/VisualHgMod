@@ -1,70 +1,61 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
 using System.Windows.Forms;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio;
-using System.Runtime.Serialization.Formatters.Binary;
+using Microsoft.VisualStudio.Shell.Interop;
 using MsVsShell = Microsoft.VisualStudio.Shell;
-using ErrorHandler = Microsoft.VisualStudio.ErrorHandler;
 
 namespace VisualHG
 {
-  public enum VisualHGToolWindow
-  {
-    None = 0,
-    PendingChanges,
-  }
-
-  // Register the VisualHG tool window visible only when the provider is active
-  [MsVsShell.ProvideToolWindow(typeof(HGPendingChangesToolWindow))]
-  [MsVsShell.ProvideToolWindowVisibility(typeof(HGPendingChangesToolWindow), GuidList.ProviderGuid)]
-  public partial class SccProvider 
-  {
-    //public ToolWindowPane FindToolWindow(Type toolWindowType, int id, bool create);
-    public void ShowToolWindow(VisualHGToolWindow window)
+    public enum VisualHgToolWindow
     {
-      ShowToolWindow(window, 0, true);
+        None = 0,
+        PendingChanges
     }
 
-    Type GetPaneType(VisualHGToolWindow toolWindow)
+    // Register the VisualHG tool window visible only when the provider is active
+    [MsVsShell.ProvideToolWindowAttribute(typeof(HGPendingChangesToolWindow))]
+    [MsVsShell.ProvideToolWindowVisibilityAttribute(typeof(HGPendingChangesToolWindow), GuidList.ProviderGuid)]
+    public partial class SccProvider
     {
-      switch (toolWindow)
-      {
-        case VisualHGToolWindow.PendingChanges:
-          return typeof(HGPendingChangesToolWindow);
-        default:
-          throw new ArgumentOutOfRangeException("toolWindow");
-      }
-    }
-
-    public ToolWindowPane FindToolWindow(VisualHGToolWindow toolWindow)
-    {
-      ToolWindowPane pane = FindToolWindow(GetPaneType(toolWindow), 0, false);
-      return pane;
-    }
-    
-    public void ShowToolWindow(VisualHGToolWindow toolWindow, int id, bool create)
-    {
-        try
+        //public ToolWindowPane FindToolWindow(Type toolWindowType, int id, bool create);
+        public void ShowToolWindow(VisualHgToolWindow window)
         {
-            ToolWindowPane pane = FindToolWindow(GetPaneType(toolWindow), id, create);
+            ShowToolWindow(window, 0, true);
+        }
 
-            IVsWindowFrame frame = pane.Frame as IVsWindowFrame;
-            if (frame == null)
+        private Type GetPaneType(VisualHgToolWindow toolWindow)
+        {
+            switch (toolWindow)
             {
-                throw new InvalidOperationException("FindToolWindow failed");
+                case VisualHgToolWindow.PendingChanges:
+                    return typeof(HGPendingChangesToolWindow);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(toolWindow));
             }
-            // Bring the tool window to the front and give it focus
-            Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(frame.Show());
         }
-        catch(Exception e)
+
+        public MsVsShell.ToolWindowPane FindToolWindow(VisualHgToolWindow toolWindow)
         {
-            MessageBox.Show(e.Message, "Error occured");
+            var pane = FindToolWindow(GetPaneType(toolWindow), 0, false);
+            return pane;
+        }
+
+        public void ShowToolWindow(VisualHgToolWindow toolWindow, int id, bool create)
+        {
+            try
+            {
+                var pane = FindToolWindow(GetPaneType(toolWindow), id, create);
+
+                var frame = pane.Frame as IVsWindowFrame;
+                if (frame == null)
+                    throw new InvalidOperationException("FindToolWindow failed");
+                // Bring the tool window to the front and give it focus
+                ErrorHandler.ThrowOnFailure(frame.Show());
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.Message, @"Error occured");
+            }
         }
     }
-  }
 }

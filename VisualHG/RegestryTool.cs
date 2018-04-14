@@ -1,13 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.ComponentModel;
 using Microsoft.Win32;
 
 namespace VisualHG
 {
     /// <summary>
-    /// registry read/write helper tool
+    ///     registry read/write helper tool
     /// </summary>
     public class RegestryTool
     {
@@ -16,70 +14,71 @@ namespace VisualHG
         /// </summary>
         /// <param name="subKey"></param>
         /// <returns></returns>
-        static RegistryKey OpenRegKey(string subKey)
+        private static RegistryKey OpenRegKey(string subKey)
         {
             if (string.IsNullOrEmpty(subKey))
-                throw new ArgumentNullException("subKey");
+                throw new ArgumentNullException(nameof(subKey));
 
-            return Registry.CurrentUser.OpenSubKey("SOFTWARE\\VisualHG\\" + subKey, RegistryKeyPermissionCheck.ReadSubTree);
+            return Registry.CurrentUser.OpenSubKey("SOFTWARE\\VisualHG\\" + subKey,
+                RegistryKeyPermissionCheck.ReadSubTree);
         }
 
         /// <summary>
-        /// Opens or creates the requested key
+        ///     Opens or creates the requested key
         /// </summary>
-        static RegistryKey OpenCreateKey(string subKey)
+        private static RegistryKey OpenCreateKey(string subKey)
         {
             if (string.IsNullOrEmpty(subKey))
-                throw new ArgumentNullException("subKey");
+                throw new ArgumentNullException(nameof(subKey));
 
             return Registry.CurrentUser.CreateSubKey("SOFTWARE\\VisualHG\\" + subKey);
         }
 
         /// <summary>
-        /// load object properties from registry
+        ///     load object properties from registry
         /// </summary>
         /// <param name="keyName"></param>
         /// <param name="o"></param>
-        static public void LoadProperties(string keyName, Object o)
+        public static void LoadProperties(string keyName, object o)
         {
-            using (RegistryKey reg = OpenRegKey(keyName))
+            using (var reg = OpenRegKey(keyName))
             {
                 if (reg != null)
                 {
-                    PropertyDescriptorCollection pdc = TypeDescriptor.GetProperties(o);
+                    var pdc = TypeDescriptor.GetProperties(o);
                     foreach (PropertyDescriptor pd in pdc)
                     {
-                        string value = reg.GetValue(pd.Name, null) as string;
+                        var value = reg.GetValue(pd.Name, null) as string;
 
                         if (value != null)
-                        {
                             try
                             {
                                 pd.SetValue(o, pd.Converter.ConvertFromInvariantString(value));
                             }
-                            catch { }
-                        }
+                            catch
+                            {
+                            }
                     }
                 }
             }
         }
 
         /// <summary>
-        /// store object properties to registry
+        ///     store object properties to registry
         /// </summary>
         /// <param name="keyName"></param>
         /// <param name="o"></param>
-        static public void StoreProperties(string keyName, Object o)
+        public static void StoreProperties(string keyName, object o)
         {
-            using (RegistryKey reg = OpenCreateKey(keyName))
+            using (var reg = OpenCreateKey(keyName))
             {
-                PropertyDescriptorCollection pdc = TypeDescriptor.GetProperties(o);
+                var pdc = TypeDescriptor.GetProperties(o);
                 foreach (PropertyDescriptor pd in pdc)
                 {
-                    object value = pd.GetValue(o);
+                    var value = pd.GetValue(o);
                     reg.SetValue(pd.Name, pd.Converter.ConvertToInvariantString(value));
                 }
             }
         }
-    };
+    }
 }

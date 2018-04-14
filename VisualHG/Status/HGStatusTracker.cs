@@ -1,17 +1,8 @@
-﻿using System;
-using System.IO;
-using System.Collections.Generic;
-using Microsoft.VisualStudio;
+﻿using HGLib;
 using Microsoft.VisualStudio.Shell.Interop;
-using System.Text;
-using System.Diagnostics;
-using System.Windows.Forms;
-using System.Threading;
-
 
 namespace VisualHG
 {
-
     // ---------------------------------------------------------------------------
     // 
     // Solution file status cache.
@@ -20,10 +11,10 @@ namespace VisualHG
     // handles directory watcher events.
     //
     // ---------------------------------------------------------------------------
-    public class HGStatusTracker : HGLib.HGStatus
+    public class HgStatusTracker : HGStatus
     {
         /// <summary>
-        /// Called by SccProviderSrvice when a scc-capable project is opened
+        ///     Called by SccProviderSrvice when a scc-capable project is opened
         /// </summary>
         /// <param name="project">The loaded project</param>
         /// <param name="added">The project was added after opening</param>
@@ -31,28 +22,26 @@ namespace VisualHG
         {
             if (project != null)
             {
-                string projectDirectory = SccProjectData.ProjectDirectory((IVsHierarchy)project);
-                string projectName = SccProjectData.ProjectName((IVsHierarchy)project);
+                var projectDirectory = SccProjectData.ProjectDirectory((IVsHierarchy) project);
+                var projectName = SccProjectData.ProjectName((IVsHierarchy) project);
 
-                AddWorkItem(new HGLib.UpdateRootDirectoryAdded(projectDirectory));
+                AddWorkItem(new UpdateRootDirectoryAdded(projectDirectory));
             }
         }
-        
+
         public void UpdateProjects(IVsSolution sol)
         {
             uint numberOfProjects;
             sol.GetProjectFilesInSolution(0, 0, null, out numberOfProjects);
-            string[] projectFiles = new string[numberOfProjects];
+            var projectFiles = new string[numberOfProjects];
             sol.GetProjectFilesInSolution(0, numberOfProjects, projectFiles, out numberOfProjects);
 
-            foreach (string projectFile in projectFiles)
-            {
-                if (!String.IsNullOrEmpty(projectFile))
+            foreach (var projectFile in projectFiles)
+                if (!string.IsNullOrEmpty(projectFile))
                 {
-                    string projectDirectory = projectFile.Substring(0, projectFile.LastIndexOf("\\") + 1);
-                    AddWorkItem(new HGLib.UpdateRootDirectoryAdded(projectDirectory));
+                    var projectDirectory = projectFile.Substring(0, projectFile.LastIndexOf("\\") + 1);
+                    AddWorkItem(new UpdateRootDirectoryAdded(projectDirectory));
                 }
-            }
         }
     }
 }

@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading;
+﻿using System.Threading;
+using HGLib;
 
 namespace VisualHG
 {
@@ -11,15 +9,19 @@ namespace VisualHG
         // show an wait for exit of required dialog
         // update state for given files
         // ------------------------------------------------------------------------
-        void QueueDialog(string[] files, string command)
+        private void QueueDialog(string[] files, string command)
         {
             ThreadPool.QueueUserWorkItem(o =>
             {
-                try {
-                HGLib.HGTK.HGTKSelectedFilesDialog(files, command);
-                sccService.StatusTracker.RebuildStatusCacheRequiredFlag=false;
-                sccService.StatusTracker.AddWorkItem(new HGLib.UpdateFileStatusCommand(files));
-                }catch{}
+                try
+                {
+                    HGTK.HGTKSelectedFilesDialog(files, command);
+                    _sccService.StatusTracker.RebuildStatusCacheRequiredFlag = false;
+                    _sccService.StatusTracker.AddWorkItem(new UpdateFileStatusCommand(files));
+                }
+                catch
+                {
+                }
             });
         }
 
@@ -34,7 +36,7 @@ namespace VisualHG
         // ------------------------------------------------------------------------
         // add files to repo dialog
         // ------------------------------------------------------------------------
-        void AddFilesDialog(string[] files)
+        private void AddFilesDialog(string[] files)
         {
             QueueDialog(files, " --nofork add ");
         }
@@ -43,25 +45,28 @@ namespace VisualHG
         // show an wait for exit of required dialog
         // update state for given files
         // ------------------------------------------------------------------------
-        void QueueDialog(string root, string command)
+        private void QueueDialog(string root, string command)
         {
             ThreadPool.QueueUserWorkItem(o =>
             {
-                try{
-                Process process = HGLib.HGTK.HGTKDialog(root, command);
-                if (process != null)
-                    process.WaitForExit();
+                try
+                {
+                    var process = HGTK.HGTKDialog(root, command);
+                    process?.WaitForExit();
 
-                sccService.StatusTracker.RebuildStatusCacheRequiredFlag = false;
-                sccService.StatusTracker.AddWorkItem(new HGLib.UpdateRootStatusCommand(root));
-                }catch{}
+                    _sccService.StatusTracker.RebuildStatusCacheRequiredFlag = false;
+                    _sccService.StatusTracker.AddWorkItem(new UpdateRootStatusCommand(root));
+                }
+                catch
+                {
+                }
             });
         }
 
         // ------------------------------------------------------------------------
         // show TortoiseHG commit dialog
         // ------------------------------------------------------------------------
-        void CommitDialog(string directory)
+        private void CommitDialog(string directory)
         {
             QueueDialog(directory, "commit");
         }
@@ -69,7 +74,7 @@ namespace VisualHG
         // ------------------------------------------------------------------------
         // show TortoiseHG revert dialog
         // ------------------------------------------------------------------------
-        void RevertDialog(string[] files)
+        private void RevertDialog(string[] files)
         {
             QueueDialog(files, " --nofork revert ");
         }
@@ -87,7 +92,7 @@ namespace VisualHG
         // ------------------------------------------------------------------------
         public void LogDialog(string file)
         {
-            String root = HGLib.HG.FindRootDirectory(file);
+            var root = HG.FindRootDirectory(file);
             if (root != string.Empty)
             {
                 file = file.Substring(root.Length + 1);
@@ -98,18 +103,21 @@ namespace VisualHG
         // ------------------------------------------------------------------------
         // show file diff window
         // ------------------------------------------------------------------------
-        void DiffDialog(string sccFile, string file, string commandMask)
+        private void DiffDialog(string sccFile, string file, string commandMask)
         {
             ThreadPool.QueueUserWorkItem(o =>
             {
-                try{
-                Process process= HGLib.HGTK.DiffDialog(sccFile, file, commandMask);
-                if (process != null)
-                    process.WaitForExit();
+                try
+                {
+                    var process = HGTK.DiffDialog(sccFile, file, commandMask);
+                    process?.WaitForExit();
 
-                sccService.StatusTracker.RebuildStatusCacheRequiredFlag = false;
-                sccService.StatusTracker.AddWorkItem(new HGLib.UpdateFileStatusCommand(new string[]{file}));
-                }catch{}
+                    _sccService.StatusTracker.RebuildStatusCacheRequiredFlag = false;
+                    _sccService.StatusTracker.AddWorkItem(new UpdateFileStatusCommand(new[] {file}));
+                }
+                catch
+                {
+                }
             });
         }
 

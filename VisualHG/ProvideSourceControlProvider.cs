@@ -4,86 +4,69 @@ using MsVsShell = Microsoft.VisualStudio.Shell;
 
 namespace VisualHG
 {
-	/// <summary>
-	/// This attribute registers the source control provider.
-	/// </summary>
-	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+    /// <summary>
+    ///     This attribute registers the source control provider.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
     public sealed class ProvideSourceControlProvider : MsVsShell.RegistrationAttribute
-	{
-        private string _regName = null;
-        private string _uiName = null;
-        
+    {
         /// <summary>
-		/// </summary>
+        /// </summary>
         public ProvideSourceControlProvider(string regName, string uiName)
-		{
-            _regName = regName;
-            _uiName = uiName;
-    	}
-
-        /// <summary>
-        /// Get the friendly name of the provider (written in registry)
-        /// </summary>
-        public string RegName
         {
-            get { return _regName; }
+            RegName = regName;
+            UiName = uiName;
         }
 
         /// <summary>
-        /// Get the unique guid identifying the provider
+        ///     Get the friendly name of the provider (written in registry)
         /// </summary>
-        public Guid RegGuid
-        {
-            get { return GuidList.guidSccProvider; }
-        }
+        public string RegName { get; }
 
         /// <summary>
-        /// Get the UI name of the provider (string resource ID)
+        ///     Get the unique guid identifying the provider
         /// </summary>
-        public string UIName
-        {
-            get { return _uiName; }
-        }
+        public Guid RegGuid => GuidList.GuidSccProvider;
 
         /// <summary>
-        /// Get the package containing the UI name of the provider
+        ///     Get the UI name of the provider (string resource ID)
         /// </summary>
-        public Guid UINamePkg
-        {
-            get { return GuidList.guidSccProviderPkg; }
-        }
+        public string UiName { get; }
 
         /// <summary>
-        /// Get the guid of the provider's service
+        ///     Get the package containing the UI name of the provider
         /// </summary>
-        public Guid SccProviderService
-        {
-            get { return GuidList.guidSccProviderService; }
-        }
+        public Guid UiNamePkg => GuidList.GuidSccProviderPkg;
 
-		/// <summary>
-		///     Called to register this attribute with the given context.  The context
-		///     contains the location where the registration inforomation should be placed.
-		///     It also contains other information such as the type being registered and path information.
-		/// </summary>
+        /// <summary>
+        ///     Get the guid of the provider's service
+        /// </summary>
+        public Guid SccProviderService => GuidList.GuidSccProviderService;
+
+        /// <summary>
+        ///     Called to register this attribute with the given context.  The context
+        ///     contains the location where the registration inforomation should be placed.
+        ///     It also contains other information such as the type being registered and path information.
+        /// </summary>
         public override void Register(RegistrationContext context)
-		{
+        {
             // Write to the context's log what we are about to do
-            context.Log.WriteLine(String.Format(CultureInfo.CurrentCulture, "VisualHG Mercurial Support for Visual Studio:\t\t{0}\n", RegName));
+            context.Log.WriteLine(string.Format(CultureInfo.CurrentCulture,
+                "VisualHG Mercurial Support for Visual Studio:\t\t{0}\n", RegName));
 
             // Declare the source control provider, its name, the provider's service 
             // and aditionally the packages implementing this provider
-            using (Key sccProviders = context.CreateKey("SourceControlProviders"))
+            using (var sccProviders = context.CreateKey("SourceControlProviders"))
             {
-                using (Key sccProviderKey = sccProviders.CreateSubkey(RegGuid.ToString("B")))
+                using (var sccProviderKey = sccProviders.CreateSubkey(RegGuid.ToString("B")))
                 {
                     sccProviderKey.SetValue("", RegName);
                     sccProviderKey.SetValue("Service", SccProviderService.ToString("B"));
 
-                    using (Key sccProviderNameKey = sccProviderKey.CreateSubkey("Name"))
+                    using (var sccProviderNameKey = sccProviderKey.CreateSubkey("Name"))
                     {
-                        sccProviderNameKey.SetValue("", UIName);
-                        sccProviderNameKey.SetValue("Package", UINamePkg.ToString("B"));
+                        sccProviderNameKey.SetValue("", UiName);
+                        sccProviderNameKey.SetValue("Package", UiNamePkg.ToString("B"));
 
                         sccProviderNameKey.Close();
                     }
@@ -96,15 +79,15 @@ namespace VisualHG
 
                 sccProviders.Close();
             }
-		}
+        }
 
-		/// <summary>
-		/// Unregister the source control provider
-		/// </summary>
-		/// <param name="context"></param>
+        /// <summary>
+        ///     Unregister the source control provider
+        /// </summary>
+        /// <param name="context"></param>
         public override void Unregister(RegistrationContext context)
-		{
-            context.RemoveKey("SourceControlProviders\\" + GuidList.guidSccProviderPkg.ToString("B"));
-		}
-	}
+        {
+            context.RemoveKey("SourceControlProviders\\" + GuidList.GuidSccProviderPkg.ToString("B"));
+        }
+    }
 }

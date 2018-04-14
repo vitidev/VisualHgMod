@@ -1,14 +1,11 @@
 ﻿using System;
-using System.IO;
-using System.Diagnostics;
-using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Microsoft.VisualStudio.OLE.Interop;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio;
 using System.Windows.Forms;
+using HGLib;
+using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Shell.Interop;
 
 namespace VisualHG
 {
@@ -17,13 +14,14 @@ namespace VisualHG
         //--------------------------------------------------------------------------------
         // IVsSccManager2 specific functions
         //--------------------------------------------------------------------------------
+
         #region IVsSccManager2 interface functions
 
-        public int BrowseForProject(out string pbstrDirectory, out int pfOK)
+        public int BrowseForProject(out string pbstrDirectory, out int pfOk)
         {
             // Obsolete method
             pbstrDirectory = null;
-            pfOK = 0;
+            pfOk = 0;
             return VSConstants.E_NOTIMPL;
         }
 
@@ -34,7 +32,7 @@ namespace VisualHG
         }
 
         /// <summary>
-        /// Returns whether the source control provider is fully installed
+        ///     Returns whether the source control provider is fully installed
         /// </summary>
         public int IsInstalled(out int pbInstalled)
         {
@@ -43,42 +41,140 @@ namespace VisualHG
             return VSConstants.S_OK;
         }
 
-        ImageMapper _statusImages = new ImageMapper();
-        uint _baseIndex;
-        ImageList _glyphList;
+        private readonly ImageMapper _statusImages = new ImageMapper();
+        private uint _baseIndex;
+        private ImageList _glyphList;
+
         /// <summary>
-        /// Called by the IDE to get a custom glyph image list for source control status.
+        ///     Called by the IDE to get a custom glyph image list for source control status.
         /// </summary>
-        /// <param name="BaseIndex">[in] Value to add when returning glyph index.</param>
+        /// <param name="baseIndex">[in] Value to add when returning glyph index.</param>
         /// <param name="pdwImageListHandle">[out] Handle to the custom image list.</param>
         /// <returns>handle of an image list</returns>
-        public int GetCustomGlyphList(uint BaseIndex, out uint pdwImageListHandle)
+        public int GetCustomGlyphList(uint baseIndex, out uint pdwImageListHandle)
         {
             // We give VS all our custom glyphs from baseindex upwards
             if (_glyphList == null)
             {
-                _baseIndex = BaseIndex;
+                _baseIndex = baseIndex;
                 _glyphList = _statusImages.CreateStatusImageList();
             }
-            pdwImageListHandle = unchecked((uint)_glyphList.Handle);
+            pdwImageListHandle = (uint) _glyphList.Handle;
 
             return VSConstants.S_OK;
         }
 
+        private class FileOrDirEntry
+        {
+            public string Path;
+
+            public HGFileStatus Status;
+
+            public int Index;
+
+            public FileOrDirEntry(string path, HGFileStatus status, int index)
+            {
+                Path = path;
+                Status = status;
+                Index = index;
+            }
+
+            public void TryUpdateStaus(HGFileStatus status)
+            {
+                if(Status==HGFileStatus.scsModified)
+                    return;
+
+
+                if (status == HGFileStatus.scsAdded)
+                {
+                    Status = HGFileStatus.scsAdded;
+                    return;
+                }
+
+                if (status == HGFileStatus.scsRenamed || (status == HGFileStatus.scsCopied || status == HGFileStatus.scsModified))
+                {
+                    Status = HGFileStatus.scsModified;
+                    return;
+                }
+
+                if (Status == HGFileStatus.scsUncontrolled)
+                {
+                    if (status == HGFileStatus.scsClean)
+                    {
+                        Status = HGFileStatus.scsClean;
+                    }
+                }
+            }
+
+            public bool Contains(FileOrDirEntry fileOrDirEntry)
+            {
+                return fileOrDirEntry.Path.StartsWith(Path);
+            }
+        }
+
         /// <summary>
-        /// Provide source control icons for the specified files and returns scc status of files
+        ///     Provide source control icons for the specified files and returns scc status of files
         /// </summary>
         /// <returns>The method returns S_OK if at least one of the files is controlled, S_FALSE if none of them are</returns>
-        public int GetSccGlyph([InAttribute] int cFiles, [InAttribute] string[] rgpszFullPaths, [OutAttribute] VsStateIcon[] rgsiGlyphs, [OutAttribute] uint[] rgdwSccStatus)
+        public int GetSccGlyph([In] int cFiles, [In] string[] rgpszFullPaths, [Out] VsStateIcon[] rgsiGlyphs,
+            [Out] uint[] rgdwSccStatus)
         {
             if (rgpszFullPaths[0] == null)
                 return 0;
 
-            // Return the icons and the status. While the status is a combination a flags, we'll return just values 
-            // with one bit set, to make life easier for GetSccGlyphsFromStatus
-            HGLib.HGFileStatus status = _sccStatusTracker.GetFileStatus(rgpszFullPaths[0]);
-            if (rgdwSccStatus != null)
-                rgdwSccStatus[0] = 1; //__SccStatus.SCC_STATUS_CONTROLLED; -> SCC_STATUS_CONTROLLED = 1
+            if(rgdwSccStatus==null)
+                rgdwSccStatus=new uint[rgpszFullPaths.Length];
+
+            if (rgpszFullPaths.Length == 1) //optimiztion
+            {
+                var status = StatusTracker.GetFileStatus(rgpszFullPaths[0]);
+                rgdwSccStatus[0] = (uint)status;
+                rgsiGlyphs[0] = GetStatusIcon(status);
+                return VSConstants.S_OK;
+            }
+
+            var directories = new List<FileOrDirEntry>(rgpszFullPaths.Length);
+            var files = new List<FileOrDirEntry>(rgpszFullPaths.Length);
+
+            for (int i = 0; i < rgpszFullPaths.Length; i++)
+            {
+                // Return the icons and the status. While the status is a combination a flags, we'll return just values 
+                // with one bit set, to make life easier for GetSccGlyphsFromStatus
+                var fullPath = rgpszFullPaths[i];
+                if (fullPath[fullPath.Length - 1] == '\\')
+                {
+                    directories.Add(new FileOrDirEntry(fullPath, HGFileStatus.scsUncontrolled, i));
+                    continue;
+                }
+                var status = StatusTracker.GetFileStatus(fullPath);
+                files.Add(new FileOrDirEntry(fullPath, status, i));
+            }
+
+            foreach (var dirEntry in directories)
+            {
+                foreach (var fileEntry in files)
+                    if (dirEntry.Contains(fileEntry))
+                        dirEntry.TryUpdateStaus(fileEntry.Status);
+            }
+
+
+            foreach (var fileOrDirEntry in directories)
+            {
+                rgdwSccStatus[fileOrDirEntry.Index] = (uint)fileOrDirEntry.Status;
+                rgsiGlyphs[fileOrDirEntry.Index] = GetStatusIcon(fileOrDirEntry.Status);
+            }
+
+            foreach (var fileOrDirEntry in files)
+            {
+                rgdwSccStatus[fileOrDirEntry.Index] = (uint)fileOrDirEntry.Status;
+                rgsiGlyphs[fileOrDirEntry.Index] = GetStatusIcon(fileOrDirEntry.Status);
+            }
+
+            return VSConstants.S_OK;
+        }
+
+        private VsStateIcon GetStatusIcon(HGFileStatus status)
+        {
             switch (status)
             {
                 // STATEICON_CHECKEDIN schloss
@@ -94,71 +190,62 @@ namespace VisualHG
                 // STATEICON_READONLY schloss
 
                 // my states
-                case HGLib.HGFileStatus.scsClean:
-                    rgsiGlyphs[0] = (VsStateIcon)(_baseIndex + 0);
-                    break;
+                case HGFileStatus.scsClean:
+                    return (VsStateIcon)(_baseIndex + 0);
 
-                case HGLib.HGFileStatus.scsModified:
-                    rgsiGlyphs[0] = (VsStateIcon)(_baseIndex + 1);
-                    break;
+                case HGFileStatus.scsModified:
+                    return (VsStateIcon)(_baseIndex + 1);
 
-                case HGLib.HGFileStatus.scsAdded:
-                    rgsiGlyphs[0] = (VsStateIcon)(_baseIndex + 2);
-                    break;
+                case HGFileStatus.scsAdded:
+                    return (VsStateIcon)(_baseIndex + 2);
 
-                case HGLib.HGFileStatus.scsRenamed:
-                    rgsiGlyphs[0] = (VsStateIcon)(_baseIndex + 3);
-                    break;
+                case HGFileStatus.scsRenamed:
+                    return (VsStateIcon)(_baseIndex + 3);
 
-                case HGLib.HGFileStatus.scsCopied:
-                    rgsiGlyphs[0] = (VsStateIcon)(_baseIndex + 3); // no better icon 
-                    break;
+                case HGFileStatus.scsCopied:
+                    return (VsStateIcon)(_baseIndex + 3); // no better icon 
 
-                case HGLib.HGFileStatus.scsRemoved:
-                    rgsiGlyphs[0] = (VsStateIcon)(_baseIndex + 1);
-                    break;
+                case HGFileStatus.scsRemoved:
+                    return (VsStateIcon)(_baseIndex + 1);
 
-                case HGLib.HGFileStatus.scsIgnored:
-                    rgsiGlyphs[0] = VsStateIcon.STATEICON_BLANK;
-                    break;
+                case HGFileStatus.scsIgnored:
+                    return VsStateIcon.STATEICON_BLANK;
 
-                case HGLib.HGFileStatus.scsUncontrolled:
-                    rgsiGlyphs[0] = VsStateIcon.STATEICON_BLANK;
-                    break;
+                case HGFileStatus.scsUncontrolled:
+                    return VsStateIcon.STATEICON_BLANK;
+
+                default: throw new ArgumentException();
             }
-
-            return VSConstants.S_OK;
         }
 
         /// <summary>
-        /// Determines the corresponding scc status glyph to display, given a combination of scc status flags
+        ///     Determines the corresponding scc status glyph to display, given a combination of scc status flags
         /// </summary>
-        public int GetSccGlyphFromStatus([InAttribute] uint dwSccStatus, [OutAttribute] VsStateIcon[] psiGlyph)
+        public int GetSccGlyphFromStatus([In] uint dwSccStatus, [Out] VsStateIcon[] psiGlyph)
         {
             return VSConstants.S_OK;
         }
 
         /// <summary>
-        /// One of the most important methods in a source control provider,
-        /// is called by projects that are under source control when they are first
-        /// opened to register project settings
+        ///     One of the most important methods in a source control provider,
+        ///     is called by projects that are under source control when they are first
+        ///     opened to register project settings
         /// </summary>
-        public int RegisterSccProject([InAttribute] IVsSccProject2 pscp2Project, [InAttribute] string pszSccProjectName, [InAttribute] string pszSccAuxPath, [InAttribute] string pszSccLocalPath, [InAttribute] string pszProvider)
+        public int RegisterSccProject([In] IVsSccProject2 pscp2Project, [In] string pszSccProjectName,
+            [In] string pszSccAuxPath, [In] string pszSccLocalPath, [In] string pszProvider)
         {
             Trace.WriteLine("RegisterSccProject");
 
             if (pscp2Project != null)
-            {
-                _sccStatusTracker.UpdateProject(pscp2Project);
-            }
+                StatusTracker.UpdateProject(pscp2Project);
             return VSConstants.S_OK;
         }
 
         /// <summary>
-        /// Called by projects registered with the source control portion of the environment
-        /// before they are closed. 
+        ///     Called by projects registered with the source control portion of the environment
+        ///     before they are closed.
         /// </summary>
-        public int UnregisterSccProject([InAttribute] IVsSccProject2 pscp2Project)
+        public int UnregisterSccProject([In] IVsSccProject2 pscp2Project)
         {
             return VSConstants.S_OK;
         }
@@ -168,56 +255,56 @@ namespace VisualHG
         //--------------------------------------------------------------------------------
         // IVsSccManagerTooltip specific functions
         //--------------------------------------------------------------------------------
+
         #region IVsSccManagerTooltip interface functions
 
         /// <summary>
-        /// Called by solution explorer to provide tooltips for items. Returns a text describing the source control status of the item.
+        ///     Called by solution explorer to provide tooltips for items. Returns a text describing the source control status of
+        ///     the item.
         /// </summary>
-        public int GetGlyphTipText([InAttribute] IVsHierarchy phierHierarchy, [InAttribute] uint itemidNode, out string pbstrTooltipText)
+        public int GetGlyphTipText([In] IVsHierarchy phierHierarchy, [In] uint itemidNode, out string pbstrTooltipText)
         {
             // Initialize output parameters
             pbstrTooltipText = "";
 
-            IList<string> files = SccProvider.GetNodeFiles(phierHierarchy, itemidNode);
+            var files = SccProvider.GetNodeFiles(phierHierarchy, itemidNode);
             if (files.Count == 0)
-            {
                 return VSConstants.S_OK;
-            }
 
             // Return the glyph text based on the first file of node (the master file)
-            HGLib.HGFileStatus status = _sccStatusTracker.GetFileStatus(files[0]);
+            var status = StatusTracker.GetFileStatus(files[0]);
             switch (status)
             {
                 // my states
-                case HGLib.HGFileStatus.scsClean:
+                case HGFileStatus.scsClean:
                     pbstrTooltipText = "Clean";
                     break;
 
-                case HGLib.HGFileStatus.scsModified:
+                case HGFileStatus.scsModified:
                     pbstrTooltipText = "Modified";
                     break;
 
-                case HGLib.HGFileStatus.scsAdded:
+                case HGFileStatus.scsAdded:
                     pbstrTooltipText = "Added";
                     break;
 
-                case HGLib.HGFileStatus.scsRenamed:
+                case HGFileStatus.scsRenamed:
                     pbstrTooltipText = "Renamed";
                     break;
 
-                case HGLib.HGFileStatus.scsRemoved:
+                case HGFileStatus.scsRemoved:
                     pbstrTooltipText = "Removed";
                     break;
 
-                case HGLib.HGFileStatus.scsCopied:
+                case HGFileStatus.scsCopied:
                     pbstrTooltipText = "Copied";
                     break;
 
-                case HGLib.HGFileStatus.scsIgnored:
+                case HGFileStatus.scsIgnored:
                     pbstrTooltipText = "Ignored";
                     break;
 
-                case HGLib.HGFileStatus.scsUncontrolled:
+                case HGFileStatus.scsUncontrolled:
                     pbstrTooltipText = "Uncontrolled";
                     break;
 
@@ -228,9 +315,9 @@ namespace VisualHG
 
             if (pbstrTooltipText != string.Empty)
             {
-                string root = HGLib.HG.FindRootDirectory(files[0]);
+                var root = HG.FindRootDirectory(files[0]);
                 //string branchName = HGLib.HG.GetCurrentBranchName(root);
-                string branchName = _sccStatusTracker.GetCurrentBranchOf(root);
+                var branchName = StatusTracker.GetCurrentBranchOf(root);
 
                 pbstrTooltipText += " [" + branchName + "]";
             }

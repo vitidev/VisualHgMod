@@ -1,20 +1,16 @@
 using System;
-using System.Globalization;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
-using System.Drawing;
+using HGLib;
 using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
-
 
 namespace VisualHG
 {
     /// <summary>
-    /// Summary description for SccProviderToolWindowControl.
+    ///     Summary description for SccProviderToolWindowControl.
     /// </summary>
-    public class HGPendingChangesToolWindowControl : System.Windows.Forms.UserControl
+    public class HGPendingChangesToolWindowControl : UserControl
     {
         private ColumnHeader columnHeaderStatus;
         private ColumnHeader columnHeaderFileName;
@@ -34,41 +30,41 @@ namespace VisualHG
             // This call is required by the Windows.Forms Form Designer.
             InitializeComponent();
 
-            ImageList menuImageList = _pendingItemsListView._ImageMapper.MenuImageList;
+            var menuImageList = _pendingItemsListView._ImageMapper.MenuImageList;
             if (menuImageList != null)
             {
-                this.commitToolStripMenuItem.Image = menuImageList.Images[0];
-                this.diffToolStripMenuItem.Image = menuImageList.Images[4];
-                this.diffExtToolStripMenuItem.Image = menuImageList.Images[4];
-                this.revertToolStripMenuItem.Image = menuImageList.Images[8];
-                this.historyToolStripMenuItem.Image = menuImageList.Images[9];
-                this.annotateFileToolStripMenuItem.Image = menuImageList.Images[7];
-                this.openInEditorToolStripMenuItem.Image = menuImageList.Images[1];
+                commitToolStripMenuItem.Image = menuImageList.Images[0];
+                diffToolStripMenuItem.Image = menuImageList.Images[4];
+                diffExtToolStripMenuItem.Image = menuImageList.Images[4];
+                revertToolStripMenuItem.Image = menuImageList.Images[8];
+                historyToolStripMenuItem.Image = menuImageList.Images[9];
+                annotateFileToolStripMenuItem.Image = menuImageList.Images[7];
+                openInEditorToolStripMenuItem.Image = menuImageList.Images[1];
             }
         }
 
-        /// <summary> 
-        /// Let this control process the mnemonics.
+        /// <summary>
+        ///     Let this control process the mnemonics.
         /// </summary>
         protected override bool ProcessDialogChar(char charCode)
         {
             // If we're the top-level form or control, we need to do the mnemonic handling
             if (charCode != ' ' && ProcessMnemonic(charCode))
-            {
                 return true;
-            }
             return base.ProcessDialogChar(charCode);
         }
 
         #region Component Designer generated code
-        /// <summary> 
-        /// Required method for Designer support - do not modify 
-        /// the contents of this method with the code editor.
+
+        /// <summary>
+        ///     Required method for Designer support - do not modify
+        ///     the contents of this method with the code editor.
         /// </summary>
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(HGPendingChangesToolWindowControl));
+            var resources =
+                new System.ComponentModel.ComponentResourceManager(typeof(HGPendingChangesToolWindowControl));
             this.pendingChangesContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.commitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.diffToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -78,21 +74,23 @@ namespace VisualHG
             this.annotateFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openInEditorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this._pendingItemsListView = new VisualHG.PendingItemsListView();
-            this.columnHeaderStatus = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.columnHeaderFileName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.columnHeaderStatus = ((System.Windows.Forms.ColumnHeader) (new System.Windows.Forms.ColumnHeader()));
+            this.columnHeaderFileName = ((System.Windows.Forms.ColumnHeader) (new System.Windows.Forms.ColumnHeader()));
             this.pendingChangesContextMenu.SuspendLayout();
             this.SuspendLayout();
             // 
             // pendingChangesContextMenu
             // 
-            this.pendingChangesContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.commitToolStripMenuItem,
-            this.diffToolStripMenuItem,
-            this.diffExtToolStripMenuItem,
-            this.revertToolStripMenuItem,
-            this.historyToolStripMenuItem,
-            this.annotateFileToolStripMenuItem,
-            this.openInEditorToolStripMenuItem});
+            this.pendingChangesContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[]
+            {
+                this.commitToolStripMenuItem,
+                this.diffToolStripMenuItem,
+                this.diffExtToolStripMenuItem,
+                this.revertToolStripMenuItem,
+                this.historyToolStripMenuItem,
+                this.annotateFileToolStripMenuItem,
+                this.openInEditorToolStripMenuItem
+            });
             this.pendingChangesContextMenu.Name = "contextMenuStrip1";
             resources.ApplyResources(this.pendingChangesContextMenu, "pendingChangesContextMenu");
             // 
@@ -140,9 +138,11 @@ namespace VisualHG
             // 
             // _pendingItemsListView
             // 
-            this._pendingItemsListView.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.columnHeaderStatus,
-            this.columnHeaderFileName});
+            this._pendingItemsListView.Columns.AddRange(new System.Windows.Forms.ColumnHeader[]
+            {
+                this.columnHeaderStatus,
+                this.columnHeaderFileName
+            });
             this._pendingItemsListView.ContextMenuStrip = this.pendingChangesContextMenu;
             resources.ApplyResources(this._pendingItemsListView, "_pendingItemsListView");
             this._pendingItemsListView.FullRowSelect = true;
@@ -153,9 +153,12 @@ namespace VisualHG
             this._pendingItemsListView.UseCompatibleStateImageBehavior = false;
             this._pendingItemsListView.View = System.Windows.Forms.View.Details;
             this._pendingItemsListView.VirtualMode = true;
-            this._pendingItemsListView.SelectedIndexChanged += new System.EventHandler(this._pendingItemsListView_SelectedIndexChanged);
-            this._pendingItemsListView.KeyDown += new System.Windows.Forms.KeyEventHandler(this._pendingItemsListView_KeyDown);
-            this._pendingItemsListView.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this._pendingItemsListView_MouseDoubleClick);
+            this._pendingItemsListView.SelectedIndexChanged +=
+                new System.EventHandler(this._pendingItemsListView_SelectedIndexChanged);
+            this._pendingItemsListView.KeyDown +=
+                new System.Windows.Forms.KeyEventHandler(this._pendingItemsListView_KeyDown);
+            this._pendingItemsListView.MouseDoubleClick +=
+                new System.Windows.Forms.MouseEventHandler(this._pendingItemsListView_MouseDoubleClick);
             this._pendingItemsListView.Resize += new System.EventHandler(this._pendingItemsListView_Resize);
             // 
             // columnHeaderStatus
@@ -174,14 +177,14 @@ namespace VisualHG
             resources.ApplyResources(this, "$this");
             this.pendingChangesContextMenu.ResumeLayout(false);
             this.ResumeLayout(false);
-
         }
+
         #endregion
 
         // ------------------------------------------------------------------------
         // update pending list with status tracker
         // ------------------------------------------------------------------------
-        public void UpdatePendingList(HGStatusTracker tracker)
+        public void UpdatePendingList(HgStatusTracker tracker)
         {
             _pendingItemsListView.UpdatePendingList(tracker);
         }
@@ -189,11 +192,11 @@ namespace VisualHG
         // ------------------------------------------------------------------------
         // open selected files in the editor 
         // ------------------------------------------------------------------------
-        void OpenSelectedFiles()
+        private void OpenSelectedFiles()
         {
             foreach (int index in _pendingItemsListView.SelectedIndices)
             {
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                var info = _pendingItemsListView._list[index];
                 try
                 {
                     VsShellUtilities.OpenDocument(SccProvider.Provider, info.fullPath);
@@ -219,9 +222,7 @@ namespace VisualHG
         private void _pendingItemsListView_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyValue == '\r')
-            {
                 OpenSelectedFiles();
-            }
         }
 
         // ------------------------------------------------------------------------
@@ -246,10 +247,10 @@ namespace VisualHG
         // ------------------------------------------------------------------------
         private void OnCommitSelectedFiles(object sender, EventArgs e)
         {
-            List<string> array = new List<string>();
+            var array = new List<string>();
             foreach (int index in _pendingItemsListView.SelectedIndices)
             {
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                var info = _pendingItemsListView._list[index];
                 array.Add(info.fullPath);
             }
 
@@ -263,17 +264,18 @@ namespace VisualHG
         {
             if (_pendingItemsListView.SelectedIndices.Count == 1)
             {
-                int index = _pendingItemsListView.SelectedIndices[0];
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                var index = _pendingItemsListView.SelectedIndices[0];
+                var info = _pendingItemsListView._list[index];
                 SccProvider.Provider.ShowHgDiffDlg(info.fullPath, false);
             }
         }
+
         private void OnDiffExtSelectedFile(object sender, EventArgs e)
         {
             if (_pendingItemsListView.SelectedIndices.Count == 1)
             {
-                int index = _pendingItemsListView.SelectedIndices[0];
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                var index = _pendingItemsListView.SelectedIndices[0];
+                var info = _pendingItemsListView._list[index];
                 SccProvider.Provider.ShowHgDiffDlg(info.fullPath, true);
             }
         }
@@ -283,10 +285,10 @@ namespace VisualHG
         // ------------------------------------------------------------------------
         private void OnRevertSelectedFile(object sender, EventArgs e)
         {
-            List<string> array = new List<string>();
+            var array = new List<string>();
             foreach (int index in _pendingItemsListView.SelectedIndices)
             {
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                var info = _pendingItemsListView._list[index];
                 array.Add(info.fullPath);
             }
 
@@ -300,8 +302,8 @@ namespace VisualHG
         {
             if (_pendingItemsListView.SelectedIndices.Count == 1)
             {
-                int index = _pendingItemsListView.SelectedIndices[0];
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                var index = _pendingItemsListView.SelectedIndices[0];
+                var info = _pendingItemsListView._list[index];
                 SccProvider.Provider.ShowHgHistoryDlg(info.fullPath);
             }
         }
@@ -313,8 +315,8 @@ namespace VisualHG
         {
             if (_pendingItemsListView.SelectedIndices.Count == 1)
             {
-                int index = _pendingItemsListView.SelectedIndices[0];
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                var index = _pendingItemsListView.SelectedIndices[0];
+                var info = _pendingItemsListView._list[index];
                 SccProvider.Provider.HgAnnotateDlg(info.fullPath);
             }
         }
@@ -332,24 +334,24 @@ namespace VisualHG
         private void _pendingItemsListView_SelectedIndexChanged(object sender, EventArgs e)
         {
             // enable menu commands
-            bool singleSel = false;
-            HGLib.HGFileStatus status = HGLib.HGFileStatus.scsUncontrolled;
+            var singleSel = false;
+            var status = HGFileStatus.scsUncontrolled;
             if (_pendingItemsListView.SelectedIndices.Count > 0)
             {
-                singleSel = (_pendingItemsListView.SelectedIndices.Count == 1) ? true : false;
-                int index = _pendingItemsListView.SelectedIndices[0];
-                HGLib.HGFileStatusInfo info = _pendingItemsListView._list[index];
+                singleSel = _pendingItemsListView.SelectedIndices.Count == 1 ? true : false;
+                var index = _pendingItemsListView.SelectedIndices[0];
+                var info = _pendingItemsListView._list[index];
                 status = info.status;
             }
 
-            annotateFileToolStripMenuItem.Visible = singleSel && status != HGLib.HGFileStatus.scsAdded &&
-                                                                  status != HGLib.HGFileStatus.scsRemoved &&
-                                                                  status != HGLib.HGFileStatus.scsRenamed;
-            diffExtToolStripMenuItem.Visible = singleSel && status != HGLib.HGFileStatus.scsRemoved &&
-                                                                  status != HGLib.HGFileStatus.scsAdded;
-            historyToolStripMenuItem.Visible = singleSel && status != HGLib.HGFileStatus.scsAdded &&
-                                                                  status != HGLib.HGFileStatus.scsRenamed;
-            openInEditorToolStripMenuItem.Visible = status != HGLib.HGFileStatus.scsRemoved;
+            annotateFileToolStripMenuItem.Visible = singleSel && status != HGFileStatus.scsAdded &&
+                                                    status != HGFileStatus.scsRemoved &&
+                                                    status != HGFileStatus.scsRenamed;
+            diffExtToolStripMenuItem.Visible = singleSel && status != HGFileStatus.scsRemoved &&
+                                               status != HGFileStatus.scsAdded;
+            historyToolStripMenuItem.Visible = singleSel && status != HGFileStatus.scsAdded &&
+                                               status != HGFileStatus.scsRenamed;
+            openInEditorToolStripMenuItem.Visible = status != HGFileStatus.scsRemoved;
         }
     }
 }
