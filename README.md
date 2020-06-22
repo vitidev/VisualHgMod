@@ -8,4 +8,4 @@ I do not know how to write extensions, so I only tried fix a bugs for personal u
 * It works on projects with new *.csproj 
 (also show status icon on folders based on inner content (experimental))
 
-##### But personally, I prefer [VisualHGMod2](https://bitbucket.org/vitidev/visualhgmod2/)
+##### But personally, I prefer [VisualHGMod2](https://github.com/vitidev/VisualHgMod2)
